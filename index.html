@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>operatic</title>
+    <style>
+        body { margin: 0; background-color: #000; overflow: hidden; font-family: 'Inter', sans-serif; }
+        #overlay {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: #22c55e; text-align: center; pointer-events: none; z-index: 10;
+            text-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div id="overlay">
+        <h1 style="font-size: 4rem; letter-spacing: 0.5rem;">OPERATIC</h1>
+        <p>SYSTEMS AT PLAY</p>
+    </div>
+
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- CONFIGURATION ---
+        const GRID_SIZE = 40;
+        const CELL_SIZE = 1;
+        const UPDATE_INTERVAL = 200; // ms
+
+        // --- INITIALIZE SCENE ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Position camera for that "3D look"
+        camera.position.set(GRID_SIZE / 2, 20, GRID_SIZE + 10);
+        camera.lookAt(GRID_SIZE / 2, 0, GRID_SIZE / 2);
+
+        // Lighting for the neon effect
+        const ambientLight = new THREE.AmbientLight(0x404040, 2); 
+        scene.add(ambientLight);
+        const pointLight = new THREE.PointLight(0x22c55e, 100, 100);
+        pointLight.position.set(GRID_SIZE/2, 10, GRID_SIZE/2);
+        scene.add(pointLight);
+
+        // --- GAME LOGIC & MESHES ---
+        let grid = Array.from({ length: GRID_SIZE }, () => 
+            Array.from({ length: GRID_SIZE }, () => Math.random() > 0.8 ? 1 : 0)
+        );
+
+        const geometry = new THREE.BoxGeometry(0.9, 0.9, 0.9);
+        const material = new THREE.MeshPhongMaterial({ 
+            color: 0x22c55e, 
+            emissive: 0x116633,
+            shininess: 100 
+        });
+
+        const meshes = [];
+
+        function updateScene() {
+            // Remove old meshes
+            meshes.forEach(m => scene.remove(m));
+            meshes.length = 0;
+
+            const nextGrid = grid.map(arr => [...arr]);
+
+            for (let x = 0; x < GRID_SIZE; x++) {
+                for (let z = 0; z < GRID_SIZE; z++) {
+                    const neighbors = countNeighbors(x, z);
+                    
+                    if (grid[x][z] === 1) {
+                        if (neighbors < 2 || neighbors > 3) nextGrid[x][z] = 0;
+                        
+                        // Create 3D Cube
+                        const mesh = new THREE.Mesh(geometry, material);
+                        mesh.position.set(x, 0, z);
+                        scene.add(mesh);
+                        meshes.push(mesh);
+                    } else {
+                        if (neighbors === 3) nextGrid[x][z] = 1;
+                    }
+                }
+            }
+            grid = nextGrid;
+        }
+
+        function countNeighbors(x, z) {
+            let count = 0;
+            for (let i = -1; i <= 1; i++) {
+                for (let j = -1; j <= 1; j++) {
+                    if (i === 0 && j === 0) continue;
+                    const nx = (x + i + GRID_SIZE) % GRID_SIZE;
+                    const nz = (z + j + GRID_SIZE) % GRID_SIZE;
+                    count += grid[nx][nz];
+                }
+            }
+            return count;
+        }
+
+        // --- ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+            // Slowly rotate scene for cinematic effect
+            scene.rotation.y += 0.002;
+        }
+
+        setInterval(updateScene, UPDATE_INTERVAL);
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
